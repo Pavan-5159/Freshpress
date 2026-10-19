@@ -16,9 +16,13 @@ project-cloth/
 ├── lovable/                  # Web Showcase & Landing Storefront (React 18, Vite, Tailwind)
 ├── newimages/                # Graphic banners and promotional images
 ├── img/                      # Category icons and brand imagery
+├── SETUP_GUIDE.md            # Step-by-step agent & developer execution checklist
 ├── WORKING.md                # Comprehensive architecture and workflow documentation
-└── README.md                 # Project quickstart and setup guide
+└── README.md                 # Project quickstart and overview
 ```
+
+> 🤖 **Looking to set this up with an AI agent or on a new computer?**  
+> Check out the complete step-by-step checklist in [SETUP_GUIDE.md](file:///d:/project-cloth/SETUP_GUIDE.md).
 
 ---
 
