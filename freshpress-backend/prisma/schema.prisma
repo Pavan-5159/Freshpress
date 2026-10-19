@@ -1,0 +1,728 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+enum Role {
+  CUSTOMER
+  AGENT
+  VENDOR
+  ADMIN
+  SHOP_OWNER
+}
+
+enum OrderStatus {
+  PENDING
+  ACCEPTED
+  PICKUP_ASSIGNED
+  PICKED_UP
+  IN_PROCESS
+  READY_FOR_DELIVERY
+  DELIVERY_ASSIGNED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  UPI
+  WALLET
+}
+
+enum PaymentGateway {
+  RAZORPAY
+  CASH
+  WALLET
+}
+
+enum AssignmentType {
+  PICKUP
+  DELIVERY
+}
+
+enum AssignmentStatus {
+  ASSIGNED
+  ACCEPTED
+  REJECTED
+  IN_TRANSIT
+  COMPLETED
+  FAILED
+}
+
+enum NotificationType {
+  ORDER_UPDATE
+  PROMOTIONAL
+  SYSTEM
+  PAYMENT
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum CouponType {
+  FLAT
+  PERCENTAGE
+}
+
+enum UnitType {
+  KG
+  PIECE
+  METER
+}
+
+enum WalletTransactionType {
+  CREDIT
+  DEBIT
+}
+
+enum WalletReferenceType {
+  ORDER_PAYMENT
+  ORDER_REFUND
+  TOP_UP
+  PROMOTIONAL
+}
+
+enum VehicleType {
+  BIKE
+  SCOOTER
+  TRUCK
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum ShopStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum PricingModel {
+  PER_ITEM
+  PER_KG
+}
+
+enum ShopSource {
+  VENDOR
+  OSM_IMPORT
+}
+
+
+// ==========================================
+// MODELS
+// ==========================================
+
+model User {
+  id              String  @id @default(uuid())
+  phone           String  @unique
+  email           String? @unique
+  password        String?
+  googleId        String? @unique
+  appleId         String? @unique
+  name            String?
+  gender          Gender?
+  role            Role    @default(CUSTOMER)
+  isPhoneVerified Boolean @default(false)
+  isActive        Boolean @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  addresses     Address[]
+  orders        Order[]
+  wallet        Wallet?
+  subscriptions Subscription[]
+  notifications Notification[]
+  reviews       Review[]
+  agentProfile  AgentProfile?
+  vendorProfile VendorProfile?
+  cart          Cart?
+  shops         Shop[]
+
+  @@map("users")
+}
+
+model AgentProfile {
+  id            String       @id @default(uuid())
+  userId        String       @unique
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicleType   VehicleType?
+  vehicleNumber String?
+  isOnline      Boolean      @default(false)
+  serviceZoneId String?
+  serviceZone   ServiceZone? @relation(fields: [serviceZoneId], references: [id], onDelete: Restrict)
+
+  assignments OrderAssignment[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([serviceZoneId])
+  @@map("agent_profiles")
+}
+
+model VendorProfile {
+  id            String      @id @default(uuid())
+  userId        String      @unique
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  businessName  String
+  taxId         String?
+  isActive      Boolean     @default(true)
+  serviceZoneId String
+  serviceZone   ServiceZone @relation(fields: [serviceZoneId], references: [id], onDelete: Restrict)
+
+  services Service[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([serviceZoneId])
+  @@map("vendor_profiles")
+}
+
+model Address {
+  id        String  @id @default(uuid())
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tag       String? // HOME, WORK
+  street    String
+  city      String
+  state     String
+  pincode   String
+  lat       Float?
+  lng       Float?
+  isDefault Boolean @default(false)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  orders Order[]
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+model ServiceZone {
+  id       String  @id @default(uuid())
+  name     String
+  city     String
+  isActive Boolean @default(true)
+
+  pincodes ServiceZonePincode[]
+  agents   AgentProfile[]
+  vendors  VendorProfile[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@map("service_zones")
+}
+
+model ServiceZonePincode {
+  id      String      @id @default(uuid())
+  zoneId  String
+  zone    ServiceZone @relation(fields: [zoneId], references: [id], onDelete: Cascade)
+  pincode String      @unique
+
+  @@index([pincode])
+  @@map("service_zone_pincodes")
+}
+
+model ServiceCategory {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+  imageUrl    String?
+  isActive    Boolean @default(true)
+
+  items Item[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@map("service_categories")
+}
+
+model Service {
+  id          String        @id @default(uuid())
+  vendorId    String
+  vendor      VendorProfile @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  isActive    Boolean       @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([vendorId])
+  @@map("services")
+}
+
+model Item {
+  id         String          @id @default(uuid())
+  categoryId String
+  category   ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  name       String
+  basePrice  Decimal         @db.Decimal(10, 2)
+  unitType   UnitType
+  imageUrl   String?
+  isActive   Boolean         @default(true)
+
+  orderItems OrderItem[]
+  cartItems  CartItem[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([categoryId])
+  @@map("items")
+}
+
+model Cart {
+  id       String     @id @default(uuid())
+  userId   String     @unique
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vendorId String?
+  items    CartItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("carts")
+}
+
+model CartItem {
+  id       String @id @default(uuid())
+  cartId   String
+  cart     Cart   @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  itemId   String
+  item     Item   @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  quantity Int
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([cartId, itemId])
+  @@map("cart_items")
+}
+
+model Order {
+  id          String         @id @default(uuid())
+  orderNumber String         @unique
+  userId      String
+  user        User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  shopId      String?
+  shop        Shop?          @relation(fields: [shopId], references: [id], onDelete: Restrict)
+  addressId   String
+  address     Address        @relation(fields: [addressId], references: [id], onDelete: Restrict)
+
+  status OrderStatus @default(PENDING)
+
+  pickup_slot       DateTime?
+  delivery_slot     DateTime?
+  estimatedPickup   DateTime?
+  estimatedDelivery DateTime?
+
+  pickupOTP   String?
+  deliveryOTP String?
+
+  couponId       String?
+  coupon         Coupon?       @relation(fields: [couponId], references: [id], onDelete: Restrict)
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
+
+  subtotal       Decimal @db.Decimal(10, 2)
+  tax            Decimal @db.Decimal(10, 2)
+  deliveryFee    Decimal @db.Decimal(10, 2)
+  discountAmount Decimal @default(0) @db.Decimal(10, 2)
+  walletAmount   Decimal @default(0) @db.Decimal(10, 2)
+  total          Decimal @db.Decimal(10, 2)
+
+  isExpress               Boolean  @default(false)
+  weight                  Decimal? @db.Decimal(5, 2)
+  specialInstructions     String?
+  deliveryNotes           String?
+  pickupAddressSnapshot   Json
+  deliveryAddressSnapshot Json
+  cancelReason            String?
+
+  version   Int     @default(1)
+  createdBy String?
+  updatedBy String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  items       OrderItem[]
+  assignments OrderAssignment[]
+  payments    Payment[]
+  review      Review?
+
+  @@index([userId])
+  @@index([shopId])
+  @@index([status])
+  @@index([userId, status])
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String  @id @default(uuid())
+  orderId    String
+  order      Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  itemId     String
+  item       Item    @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  quantity   Int
+  unitPrice  Decimal @db.Decimal(10, 2)
+  totalPrice Decimal @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model OrderAssignment {
+  id      String           @id @default(uuid())
+  orderId String
+  order   Order            @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  agentId String
+  agent   AgentProfile     @relation(fields: [agentId], references: [id], onDelete: Restrict)
+  type    AssignmentType
+  status  AssignmentStatus @default(ASSIGNED)
+  notes   String?
+
+  assignedAt  DateTime  @default(now())
+  acceptedAt  DateTime?
+  pickedAt    DateTime?
+  deliveredAt DateTime?
+
+  pickupLatitude    Float?
+  pickupLongitude   Float?
+  deliveryLatitude  Float?
+  deliveryLongitude Float?
+  proofPhotoUrl     String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([agentId, status])
+  @@index([orderId])
+  @@map("order_assignments")
+}
+
+model Wallet {
+  id      String  @id @default(uuid())
+  userId  String  @unique
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balance Decimal @default(0) @db.Decimal(10, 2)
+
+  transactions WalletTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id             String                @id @default(uuid())
+  walletId       String
+  wallet         Wallet                @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  type           WalletTransactionType
+  amount         Decimal               @db.Decimal(10, 2)
+  closingBalance Decimal               @db.Decimal(10, 2)
+
+  referenceType WalletReferenceType
+  referenceId   String?
+  description   String?
+
+  createdAt DateTime @default(now())
+
+  @@index([walletId, createdAt])
+  @@map("wallet_transactions")
+}
+
+model Payment {
+  id      String         @id @default(uuid())
+  orderId String
+  order   Order          @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  amount  Decimal        @db.Decimal(10, 2)
+  method  PaymentMethod
+  gateway PaymentGateway @default(RAZORPAY)
+  status  PaymentStatus  @default(PENDING)
+
+  gatewayOrderId   String? @unique
+  gatewayPaymentId String? @unique
+  gatewaySignature String?
+  gatewayResponse  Json?
+
+  failureReason String?
+  paidAt        DateTime?
+  refundedAt    DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@map("payments")
+}
+
+model Coupon {
+  id             String     @id @default(uuid())
+  code           String     @unique
+  type           CouponType
+  value          Decimal    @db.Decimal(10, 2)
+  minOrderAmount Decimal?   @db.Decimal(10, 2)
+  maxDiscount    Decimal?   @db.Decimal(10, 2)
+
+  usageLimit            Int?
+  usedCount             Int      @default(0)
+  perUserLimit          Int      @default(1)
+  firstOrderOnly        Boolean  @default(false)
+  applicableCategoryIds String[]
+
+  validFrom DateTime
+  validTill DateTime
+  isActive  Boolean  @default(true)
+
+  orders Order[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@map("coupons")
+}
+
+model Subscription {
+  id         String             @id @default(uuid())
+  userId     String
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planName   String
+  itemsLimit Int
+  itemsUsed  Int                @default(0)
+  status     SubscriptionStatus @default(ACTIVE)
+  validFrom  DateTime
+  validTill  DateTime
+
+  orders Order[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([userId, status])
+  @@map("subscriptions")
+}
+
+model Notification {
+  id     String           @id @default(uuid())
+  userId String
+  user   User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type   NotificationType
+  title  String
+  body   String
+  isRead Boolean          @default(false)
+  data   Json?
+
+  imageUrl  String?
+  actionUrl String?
+  priority  NotificationPriority @default(NORMAL)
+  expiresAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model Review {
+  id      String @id @default(uuid())
+  orderId String @unique
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  userId  String
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  vendorRating  Int?
+  agentRating   Int?
+  serviceRating Int?
+  overallRating Int
+
+  comment String?
+  images  String[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([userId])
+  @@map("reviews")
+}
+
+// ==========================================
+// HOME PAGE / SHOPS FEATURE
+// ==========================================
+
+model City {
+  id                 String  @id @default(uuid())
+  name               String
+  state              String
+  deliveryRadiusKm   Int     @default(10)
+  baseDeliveryPaise  Int     @default(4000)
+  perKmPaise         Int     @default(500)
+  isActive           Boolean @default(true)
+
+  shops      Shop[]
+  banners    HomeBanner[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("cities")
+}
+
+model Shop {
+  id          String     @id @default(uuid())
+  ownerId     String?
+  owner       User?      @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  cityId      String?
+  city        City?      @relation(fields: [cityId], references: [id], onDelete: Restrict)
+
+  name        String
+  slug        String     @unique
+  description String?
+  phone       String?
+
+  addressLine String
+  cityName    String
+  state       String
+  pincode     String
+
+  // PostGIS geography point – managed via raw SQL ($executeRaw)
+  // Stored as lat/lng floats for Prisma reads; spatial index added in migration
+  lat         Float?
+  lng         Float?
+
+  source      ShopSource @default(VENDOR)
+  osmId       String?    @unique
+  isClaimed   Boolean    @default(false)
+  category    String?
+
+  status      ShopStatus @default(ACTIVE)
+  isOpen      Boolean    @default(true)
+  commissionPct Decimal  @default(15.00) @db.Decimal(5, 2)
+
+  logoUrl     String?
+  bannerUrl   String?
+
+  ratingAvg   Float   @default(0)
+  ratingCount Int     @default(0)
+  totalOrders Int     @default(0)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  serviceCategories ShopServiceCategory[]
+  services          ShopService[]
+  orders            Order[]
+
+  @@index([cityId])
+  @@index([status])
+  @@map("shops")
+}
+
+model ShopServiceCategory {
+  id           String @id @default(uuid())
+  shopId       String
+  shop         Shop   @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  name         String
+  displayOrder Int    @default(0)
+  isAvailable  Boolean @default(true)
+
+  services ShopService[]
+
+  @@index([shopId])
+  @@map("shop_service_categories")
+}
+
+model ShopService {
+  id             String      @id @default(uuid())
+  shopId         String
+  shop           Shop        @relation(fields: [shopId], references: [id], onDelete: Cascade)
+  categoryId     String
+  category       ShopServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  name           String
+  pricingModel   PricingModel @default(PER_ITEM)
+  pricePaise     Int          // price stored in smallest unit (paise)
+  turnaroundHours Int         @default(24)
+  isAvailable    Boolean      @default(true)
+  displayOrder   Int          @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([shopId])
+  @@index([categoryId])
+  @@map("shop_services")
+}
+
+model HomeBanner {
+  id           String   @id @default(uuid())
+  title        String
+  subtitle     String?
+  imageUrl     String
+  deepLink     String?
+  cityId       String?
+  city         City?    @relation(fields: [cityId], references: [id], onDelete: SetNull)
+  displayOrder Int      @default(0)
+  validFrom    DateTime @default(now())
+  validTo      DateTime
+  isActive     Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@index([cityId, isActive])
+  @@map("home_banners")
+}

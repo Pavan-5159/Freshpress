@@ -1,0 +1,46 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: freshpress-db
+    environment:
+      POSTGRES_USER: freshpress
+      POSTGRES_PASSWORD: freshpress
+      POSTGRES_DB: freshpress
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - freshpress-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: freshpress-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - freshpress-network
+
+  api:
+    build: .
+    container_name: freshpress-api
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://freshpress:freshpress@postgres:5432/freshpress?schema=public
+      - PORT=3000
+      - NODE_ENV=production
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - freshpress-network
+
+volumes:
+  postgres_data:
+
+networks:
+  freshpress-network:
+    driver: bridge

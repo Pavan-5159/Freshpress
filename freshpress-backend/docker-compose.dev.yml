@@ -1,0 +1,35 @@
+# docker-compose.dev.yml
+# Use this file for local development: docker compose -f docker-compose.dev.yml up -d
+# The API is intentionally excluded — run it locally with: npm run dev
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: freshpress-db
+    environment:
+      POSTGRES_USER: freshpress
+      POSTGRES_PASSWORD: freshpress
+      POSTGRES_DB: freshpress
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - freshpress-network
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: freshpress-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - freshpress-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+
+networks:
+  freshpress-network:
+    driver: bridge
